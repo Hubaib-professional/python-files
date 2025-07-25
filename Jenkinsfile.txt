@@ -1,0 +1,97 @@
+// Jenkinsfile (Declarative Pipeline)
+
+pipeline {
+    // Define where the pipeline will run. 'agent any' means it can run on any available Jenkins agent.
+    // For a simple local setup, 'agent any' is usually fine.
+    agent any
+
+    // Define environment variables if needed (e.g., Python version, virtual environment path)
+    environment {
+        // You can specify a Python executable if it's not in the default PATH
+        // PYTHON_HOME = '/usr/bin/python3' // Example for Linux
+        // PYTHON_HOME = 'C:\\Python39' // Example for Windows
+        // For simplicity, we'll assume 'python' or 'python3' is in PATH
+        VIRTUAL_ENV_NAME = 'venv' // Name for our Python virtual environment
+    }
+
+    // Define the stages of your CI/CD pipeline
+    stages {
+        // Stage 1: Checkout the code from your SCM (Source Code Management)
+        stage('Checkout') {
+            steps {
+                // This step automatically checks out the code from the SCM
+                // configured in your Jenkins job.
+                script {
+                    echo 'Checking out source code...'
+                    // 'checkout scm' is a standard Jenkins Pipeline step
+                    // that checks out the code from the repository configured
+                    // in the job's SCM section.
+                    checkout scm
+                }
+            }
+        }
+
+        // Stage 2: Set up the Python environment and install dependencies
+        stage('Build') {
+            steps {
+                script {
+                    echo 'Setting up Python virtual environment and installing dependencies...'
+                    // Create a virtual environment
+                    sh "python3 -m venv ${env.VIRTUAL_ENV_NAME}"
+                    // Activate the virtual environment and install dependencies
+                    // Note: 'source' command is for Bash/Zsh. For Windows Batch, use 'call'.
+                    // For cross-platform compatibility in Jenkins, it's often easier to
+                    // directly call the python executable inside the venv's bin/Scripts directory.
+                    sh "${env.VIRTUAL_ENV_NAME}/bin/pip install -r requirements.txt" // For Linux/macOS
+                    // For Windows, it would typically be:
+                    // bat "${env.VIRTUAL_ENV_NAME}\\Scripts\\pip.exe install -r requirements.txt"
+                    // Or, if you use a single 'sh' block, Jenkins might handle it:
+                    // sh """
+                    //     python3 -m venv ${env.VIRTUAL_ENV_NAME}
+                    //     source ${env.VIRTUAL_ENV_NAME}/bin/activate
+                    //     pip install -r requirements.txt
+                    // """
+                    // For this simple example, we assume `python3` is available and `pip` is in venv/bin
+                }
+            }
+        }
+
+        // Stage 3: Run the tests
+        stage('Test') {
+            steps {
+                script {
+                    echo 'Running unit tests...'
+                    // Run tests using the Python executable from the virtual environment
+                    sh "${env.VIRTUAL_ENV_NAME}/bin/python -m unittest test_app.py" // For Linux/macOS
+                    // For Windows:
+                    // bat "${env.VIRTUAL_ENV_NAME}\\Scripts\\python.exe -m unittest test_app.py"
+                }
+            }
+        }
+
+        // Stage 4: Clean up (optional, but good practice for CI environments)
+        stage('Cleanup') {
+            steps {
+                script {
+                    echo 'Cleaning up virtual environment...'
+                    sh "rm -rf ${env.VIRTUAL_ENV_NAME}" // For Linux/macOS
+                    // For Windows, you might use:
+                    // bat "rmdir /s /q ${env.VIRTUAL_ENV_NAME}"
+                }
+            }
+        }
+    }
+
+    // Define post-build actions (e.g., send notifications)
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check the console output for errors.'
+        }
+    }
+}
